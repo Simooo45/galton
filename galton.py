@@ -3,6 +3,7 @@ import numpy as np
 import datetime
 import json
 from alive_progress import alive_bar
+from bayes_opt import BayesianOptimization
 
 class Galton:
     def __init__(self, configuretion_file="configuration.json"):
@@ -63,8 +64,10 @@ class Galton:
             Inverte il chi quadro per ottenere valori crescenti (utili a random.choices)
         """
         return 1/self.chi_square(individual)
-    
 
+    
+############################################ Genetic Algorithms ###########################################################
+    
     def choose_parents(self, weights, bar=None):
         """
             Seleziona i genitori con le performances migliori.
@@ -169,6 +172,32 @@ class Galton:
 
         return best_solution
     
+############################################# Bayesian Optimization ##################################################################
+    
+    def proxy_fitness_function(self, **kwargs):
+        return self.fitness_function(list(kwargs.values()))
+    
+    def bayesian_optimization(self):
+        # Inizializza l'ottimizzatore
+        optimizer = BayesianOptimization(
+            f=self.proxy_fitness_function,
+            pbounds={f'{i}'.zfill(2): (0, 1) for i in range(1, self.n+1)}
+        )
+
+        # Esegui le iterazioni di ottimizzazione
+        optimizer.maximize(
+            init_points=self.config["bayesian"]["init_points"],  # Numero di punti iniziali casuali
+            n_iter=self.config["bayesian"]["generations"]  # Numero di iterazioni dell'ottimizzazione bayesiana
+        )
+
+        # I risultati dell'ottimizzazione sono accessibili tramite optimizer.max
+        migliori_parametri = optimizer.max['params']
+        valore_massimizzato = optimizer.max['target']
+        print(migliori_parametri)
+        print(list(migliori_parametri.values()))
+        print(1/valore_massimizzato)
+
+################################################ Simulation ###########################################################################
 
     def simulate(self, best=None):
         """
@@ -215,7 +244,8 @@ class Galton:
 
 if __name__ == "__main__":
     galton = Galton()
-    best = galton.find_galton()
-    galton.test(best)
-    galton.simulate(best)
+    # galton.bayesian_optimization()
+    # best = galton.find_galton()
+    # galton.test(best)
+    galton.simulate()
 
