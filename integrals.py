@@ -8,14 +8,38 @@ class distribution:
     def __init__ (self, distribution, left=None, right=None, phi_z=5e-12):
         self.distribution = distribution
         self.phi_z = phi_z
-        self.range=10
-        self.right = right if right else self.find_right()
-        self.left = left if left else self.find_left()
+        self.range=1
+        self.right = right if right != None else self.find_right()
+        self.left = left if left != None else self.find_left()
     
-    def find_left(self):
+    def find_left(self, check_error=False):
         min = -self.range
         max = +self.range
+
+        integral, error = spi.quad(self.distribution, -np.inf, min)
         
+        # Mi assicuro che min sia inizialmente a destra di phi_z
+        while integral < self.phi_z:
+            min, max = min+1, max+1
+            integral, error = spi.quad(self.distribution, -np.inf, min)
+            if check_error and error > self.phi_z:   
+                break
+
+        # Pongo min a sinistra di phi_z
+        while integral > self.phi_z:
+            min, max = min-1, max-1
+            integral, error = spi.quad(self.distribution, -np.inf, min)
+            if check_error and error > self.phi_z:  
+                break
+
+        # Pongo max a destra di phi_z
+        integral, error = spi.quad(self.distribution, -np.inf, max)
+        while integral > self.phi_z:
+            max += 1
+            integral, error = spi.quad(self.distribution, -np.inf, max)
+            if check_error and error > self.phi_z:   
+                break
+
         for _ in range(10000):
             value = random.uniform(min, max)
             integral, error = spi.quad(self.distribution, -np.inf, value)
@@ -23,11 +47,36 @@ class distribution:
                 max = value
             else:
                 min = value
-        return (max+min)/2
+        result = (max+min)/2
+        print(f"Estremo sinistro di integrazione: {result}")
+        return result
 
-    def find_right(self):
+    def find_right(self, check_error=False):
         min = -self.range
         max = +self.range
+
+        # Mi assicuro che max sia inizialmente a sinistra di phi_z
+        integral, error = spi.quad(self.distribution, max, np.inf)
+        while integral < self.phi_z:
+            min, max = min-1, max-1
+            integral, error = spi.quad(self.distribution, max, np.inf)
+            if check_error and error > self.phi_z:      
+                break
+
+        # Pongo max a destra di phi_z
+        while integral > self.phi_z:
+            min, max = min+1, max+1
+            integral, error = spi.quad(self.distribution, max, np.inf)
+            if check_error and error > self.phi_z:     
+                break
+
+        # Pongo min a sinistra di phi_z
+        integral, error = spi.quad(self.distribution, min, np.inf)
+        while integral > self.phi_z:
+            min -= 1
+            integral, error = spi.quad(self.distribution, min, np.inf)
+            if check_error and error > self.phi_z:  
+                break
         
         for _ in range(10000):
             value = random.uniform(min, max)
@@ -37,7 +86,9 @@ class distribution:
             else:
                 min = value
 
-        return (max+min)/2
+        result = (max+min)/2
+        print(f"Estremo destro di integrazione: {result}")
+        return result
     
     def get_integrated_distribution(self, slices=26):
         step=abs(self.right-self.left)/slices
@@ -45,5 +96,5 @@ class distribution:
                         for i in range (slices)]  
 
 if __name__ == "__main__":
-    dist = distribution(ESPONENTIAL, left=0)
+    dist = distribution(EXPONENTIAL, left=0, phi_z=5e-18)
     print(dist.get_integrated_distribution())
