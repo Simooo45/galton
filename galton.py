@@ -2,6 +2,7 @@ import random
 import numpy as np
 import datetime
 import json
+import math
 from alive_progress import alive_bar
 from bayes_opt import BayesianOptimization
 
@@ -13,6 +14,7 @@ class Galton:
         with open(configuretion_file) as f:
             self.config = json.load(f)
         self.distribution = self.config["distribution"]
+        self.np_distribution = np.array(self.distribution)
         self.n = len(self.distribution) - 1
         self.population = self.create_starting_population()
         self.scores = {}
@@ -37,33 +39,52 @@ class Galton:
         """
             Calcola la probabilità della distribuzione di Galton usando iterazioni matriciali.
         """
-        matrix = np.matrix(np.ones(1))
-        zeros = np.matrix(np.zeros(1))
-        for idx in range(self.n):
-            probs = np.matrix([individual[idx], 1 - individual[idx]], dtype='float64')
-            temp_matrix = np.matrix(np.dot(matrix, probs), dtype='float64')            
-            col0 = np.concatenate((temp_matrix[:, 0], zeros))
-            col1 = np.concatenate((zeros, temp_matrix[:, 1]))
-            matrix = (col0+col1)
-        return matrix.flatten().tolist()[0]
+        matrix = np.array(np.ones(1))
+        zeros = np.array(np.zeros(1))
+        for idx in range(len(individual)):
+            probs = np.array([[individual[idx], 1 - individual[idx]]], dtype='float64')
+            temp_matrix = np.dot(matrix, probs)
+            if idx == 0:
+                col0 = np.concatenate(([temp_matrix[0]], zeros))
+                col1 = np.concatenate((zeros, [temp_matrix[1]]))
+            else:     
+                col0 = np.concatenate((temp_matrix[:, 0], zeros))
+                col1 = np.concatenate((zeros, temp_matrix[:, 1]))
+            
+            matrix = np.array([col0+col1]).T
+        return matrix.flatten()
 
+    def test(self, individual):
+        print(self.galton_score(individual))
+
+############################################ Fitness function #############################################################
 
     def chi_square(self, individual):
         """
             Calcola chi^2 partendo dai valori di galton e la distribuzione attesa.
         """
-        return sum([(e-s)**2/(e**2) for s, e in zip(self.galton_score(individual), self.distribution)])
+        return np.sum(np.square(np.ones(self.n+1)-(self.galton_score(individual)/self.np_distribution)))
     
-
-    def test(self, individual):
-        print(self.galton_score(individual))
-
-
-    def fitness_function(self, individual):
+    def fitness_function_chi(self, individual):
         """
             Inverte il chi quadro per ottenere valori crescenti (utili a random.choices)
         """
         return 1/self.chi_square(individual)
+    
+    def logarithm(self, individual):
+        """
+            Calcola la performance con una funzione logaritmica.
+        """
+        galton = self.galton_score(individual)
+        log = np.abs(np.log(galton/self.np_distribution))
+        result = np.sum(log)
+        return result
+
+    def fitness_function_log(self, individual):
+        """
+            Inverte la funzione logaritmica per ottenere valori crescenti (utili a random.choices)
+        """
+        return 1/self.logarithm(individual)
 
     
 ############################################ Genetic Algorithms ###########################################################
@@ -112,13 +133,18 @@ class Galton:
         return mutated_individual
 
 
-    def find_galton(self):
+    def find_galton(self, function="chi"):
         """
             Itera le generazioni per ottenere le performances migliori.
         """
+        if function == "log":
+            fitness_function = self.fitness_function_log
+        else:
+            fitness_function = self.fitness_function_chi
+        
         with alive_bar(len(self.population), title=f"Starting generation:".ljust(30)) as bar:
             for individual in self.population:
-                self.scores[tuple(individual)]= self.fitness_function(individual)
+                self.scores[tuple(individual)]= fitness_function(individual)
                 bar()
         print(f"Best of generation Starting generation:\t {1/(sorted(self.scores.values(), reverse=True)[0])}")
         
@@ -142,7 +168,7 @@ class Galton:
             new_individuals = [individual for individual in mutated_children if tuple(individual) not in self.scores.keys()]
             with alive_bar(len(new_individuals), title=f"Generazione {generation+1}:".ljust(30)) as bar:
                 for individual in new_individuals:
-                    self.scores[tuple(individual)] = self.fitness_function(individual)
+                    self.scores[tuple(individual)] = fitness_function(individual)
                     bar()
             print(f"Best of generation {generation + 1}:\t {1/(sorted(self.scores.values(), reverse=True)[0])}")
 
@@ -174,13 +200,21 @@ class Galton:
     
 ############################################# Bayesian Optimization ##################################################################
     
-    def proxy_fitness_function(self, **kwargs):
-        return self.fitness_function(list(kwargs.values()))
+    def proxy_fitness_function_log(self, **kwargs):
+        return self.fitness_function_log(list(kwargs.values()))
     
-    def bayesian_optimization(self):
+    def proxy_fitness_function_chi(self, **kwargs):
+        return self.fitness_function_chi(list(kwargs.values()))
+    
+    def bayesian_optimization(self, function="chi"):
+        if function == "log":
+            fitness_function = self.proxy_fitness_function_log
+        else:
+            fitness_function = self.proxy_fitness_function_chi
+
         # Inizializza l'ottimizzatore
         optimizer = BayesianOptimization(
-            f=self.proxy_fitness_function,
+            f=fitness_function,
             pbounds={f'{i}'.zfill(2): (0, 1) for i in range(1, self.n+1)}
         )
 
@@ -196,6 +230,7 @@ class Galton:
         print(migliori_parametri)
         print(list(migliori_parametri.values()))
         print(1/valore_massimizzato)
+        return list(migliori_parametri.values())
 
 ################################################ Simulation ###########################################################################
 
@@ -244,8 +279,8 @@ class Galton:
 
 if __name__ == "__main__":
     galton = Galton()
-    # galton.bayesian_optimization()
-    # best = galton.find_galton()
-    # galton.test(best)
-    galton.simulate()
-
+    # print(galton.chi_square([0.5450393372305553, 0.5350242393785283, 0.5013578056935863, 0.48477388840143615, 0.5203916447561663, 0.49118258724747116, 0.4875636662459224, 0.5171323066885223, 0.5062444829004319, 0.550533897613901, 0.4998497915084896, 0.4976310196705649, 0.46686509502843954, 0.48513409114897943, 0.45743970311938975, 0.428910601701293, 0.4725467030455688, 0.5369286156474097, 0.48039425062781355, 0.5309034078785204, 0.5410756982687943, 0.47188019903285805, 0.4983719878762516, 0.45643649854332596, 0.5442642189090006]))
+    # best = galton.bayesian_optimization("chi")
+    best = galton.find_galton("chi")
+    galton.test(best)
+    galton.simulate(best)
