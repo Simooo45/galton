@@ -12,7 +12,7 @@ class distribution:
         self.right = right if right != None else self.find_right()
         self.left = left if left != None else self.find_left()
     
-    def find_left(self, check_error=False):
+    def find_left(self):
         min = -self.range
         max = +self.range
 
@@ -22,23 +22,17 @@ class distribution:
         while integral < self.phi_z:
             min, max = min+1, max+1
             integral, error = spi.quad(self.distribution, -np.inf, min)
-            if check_error and error > self.phi_z:   
-                break
 
         # Pongo min a sinistra di phi_z
         while integral > self.phi_z:
             min, max = min-1, max-1
             integral, error = spi.quad(self.distribution, -np.inf, min)
-            if check_error and error > self.phi_z:  
-                break
 
         # Pongo max a destra di phi_z
         integral, error = spi.quad(self.distribution, -np.inf, max)
         while integral > self.phi_z:
             max += 1
             integral, error = spi.quad(self.distribution, -np.inf, max)
-            if check_error and error > self.phi_z:   
-                break
 
         for _ in range(10000):
             value = random.uniform(min, max)
@@ -51,7 +45,7 @@ class distribution:
         print(f"Estremo sinistro di integrazione: {result}")
         return result
 
-    def find_right(self, check_error=False):
+    def find_right(self):
         min = -self.range
         max = +self.range
 
@@ -60,23 +54,17 @@ class distribution:
         while integral < self.phi_z:
             min, max = min-1, max-1
             integral, error = spi.quad(self.distribution, max, np.inf)
-            if check_error and error > self.phi_z:      
-                break
 
         # Pongo max a destra di phi_z
         while integral > self.phi_z:
             min, max = min+1, max+1
             integral, error = spi.quad(self.distribution, max, np.inf)
-            if check_error and error > self.phi_z:     
-                break
 
         # Pongo min a sinistra di phi_z
         integral, error = spi.quad(self.distribution, min, np.inf)
         while integral > self.phi_z:
             min -= 1
             integral, error = spi.quad(self.distribution, min, np.inf)
-            if check_error and error > self.phi_z:  
-                break
         
         for _ in range(10000):
             value = random.uniform(min, max)
