@@ -45,5 +45,5 @@ class distribution:
                         for i in range (slices)]  
 
 if __name__ == "__main__":
-    dist = distribution(STANDARD)
+    dist = distribution(ESPONENTIAL, left=0)
     print(dist.get_integrated_distribution())
