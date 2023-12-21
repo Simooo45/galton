@@ -78,11 +78,20 @@ class distribution:
         print(f"Estremo destro di integrazione: {result}")
         return result
     
-    def get_integrated_distribution(self, slices=26):
+    def get_integrated_distribution(self, slices=26, normalize=True):
+        """
+            Restituisce la funzione integrata tra left e right in un numero 'slices' di segmenti.
+            Se normalize=True l'integrale viene normalizzato per avere 1 come somma totale
+        """
         step=abs(self.right-self.left)/slices
-        return [spi.quad(self.distribution, self.left+step*i, self.left+step*(i+1))[0] 
+        values = [spi.quad(self.distribution, self.left+step*i, self.left+step*(i+1))[0] 
                         for i in range (slices)]  
+        if normalize:
+            total = sum(values)
+            values = [val/total for val in values]
+        print(values)
+        return values
 
 if __name__ == "__main__":
-    dist = distribution(EXPONENTIAL, left=0, phi_z=5e-18)
-    print(dist.get_integrated_distribution())
+    dist = distribution(EXPONENTIAL, left=0, phi_z=5e-8)
+    dist.get_integrated_distribution(slices=26, normalize=True)
