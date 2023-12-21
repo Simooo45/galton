@@ -258,10 +258,12 @@ class Galton:
             for idx in range(1, n_simulation+1):
                 f.write(f"SIMULAZIONE: {idx}\n\n")
                 cols_dict = {col:0 for col in cols}
-                for _ in range(n_marble):
-                    column = sum([random.choices([-0.5, +0.5], weights=(values[i], 1 - values[i]), k=1)[0] for i in range(len(values))])
-                    cols_dict[column] += 1
-                
+                with alive_bar(n_marble, title=f"Simulazione {idx}:") as bar:
+                    for _ in range(n_marble):
+                        column = sum([random.choices([-0.5, +0.5], weights=(values[i], 1 - values[i]), k=1)[0] for i in range(len(values))])
+                        cols_dict[column] += 1
+                        bar()
+
                 max_height = max(cols_dict.values())
                 graph = "\n".join(
                         ["|".join(
@@ -272,7 +274,7 @@ class Galton:
                 f.write(graph)
                 f.write(f"\n{'-'.join(['--' for _ in cols])}\n\n")
                 f.flush()
-            
+        print("Simulazione terminata")
 
 
 
