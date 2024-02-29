@@ -18,14 +18,18 @@ class Galton:
         self.np_distribution = np.array(self.distribution)
         self.n = len(self.distribution) - 1
         self.n_pins = (self.n*(self.n+1))//2
+        self.n_mix = self.n + self.n_pins
         self.def_board = [np.ones(idx + 1) for idx in range(self.n)]
         self.def_individual = [0.5 for _ in range(self.n)]
         self.population = self.create_starting_population()
         self.population_pins = self.create_starting_population_pins()
+        self.population_mix = self.create_starting_population_mix()
         self.scores = {}
         self.scores_pins = {}
+        self.scores_mix = {}
         self.population_size = self.config["genetic_algorithms"]["population_size"]
         self.population_size_pins = self.config["genetic_algorithms"]["population_size_pins"]
+        self.population_size_mix = self.config["genetic_algorithms"]["population_size_mix"]
 
 ################################## Genetic Algorithms ##########################################
 
@@ -57,6 +61,20 @@ class Galton:
         return [self.create_individual_pins() for _ in range(self.config["genetic_algorithms"]["starting_population_size_pins"])]
     
 
+    def create_individual_mix(self):
+        """
+            Creazione di un individuo randomico.
+        """
+        return np.concatenate((self.create_individual(), self.create_individual_pins()))
+
+
+    def create_starting_population_mix(self):
+        """
+            Creazione della popolazione iniziale.
+        """
+        return [self.create_individual_mix() for _ in range(self.config["genetic_algorithms"]["starting_population_size_mix"])]
+
+
     def galton_score(self, individual=None, board=None):
         """
             Calcola la probabilità della distribuzione di Galton usando iterazioni matriciali.
@@ -65,7 +83,7 @@ class Galton:
         last_row = None
         if board == None:
             board = self.def_board
-        if individual == None:
+        if type(individual) == None:
             individual = self.def_individual
         not_board = [np.ones(list1.size) - list1 for list1 in board]
 
@@ -363,6 +381,117 @@ class Galton:
 
         return best_solution
     
+    ############################################ Genetic Algorithms Mix ###########################################################
+
+    def formatter(self, individual):
+        result = []
+        for idx in range(1, self.n):
+            result.append(np.array(individual[:idx]))
+            individual = individual[idx:]
+        return result
+
+    def choose_parents_mix(self, weights, bar=None):
+        """
+            Seleziona i genitori con le performances migliori.
+        """
+        if bar:
+            bar()
+        return random.choices(
+                                self.population_mix, 
+                                weights=weights, 
+                                k=2
+                            )
+
+    
+    def crossover_mix(self, parents, bar=None):
+        """
+            Ricombina i valori dei genitori per ottenere due figli in maniera randomica.
+            Genera un terzo figlio come media dei genitori.
+        """
+        change = random.randint(0, self.n_mix)
+        combine = [True for _ in range(change)] + [False for _ in range(self.n_mix - change)]
+        random.shuffle(combine)
+
+        child1 = [parents[0][idx] if combine[idx] else parents[1][idx] for idx in range(self.n_mix)]
+        child2 = [parents[1][idx] if combine[idx] else parents[0][idx] for idx in range(self.n_mix)]
+        
+        if bar:
+            bar()
+        return child1, child2
+    
+   
+    def mutate_mix(self, individual):
+        """
+            Parte dei geni dell'individuo vengono mutati.
+        """
+        return self.mutate(individual[:self.n]) + self.mutate_pins(individual[self.n:])
+
+
+    def find_galton_mix(self, function="chi"):
+        """
+            Itera le generazioni per ottenere le performances migliori.
+        """
+        if function == "log":
+            fitness_function = self.fitness_function_log
+        else:
+            fitness_function = self.fitness_function_chi
+        
+        with alive_bar(len(self.population_mix), title=f"Starting generation mix:".ljust(30)) as bar:
+            for individual in self.population_mix:
+                self.scores_mix[tuple(individual)]= fitness_function(individual=individual[:self.n], board=self.formatter(individual[self.n:]))
+                bar()
+        print(f"Best of generation Starting generation:\t {1/(sorted(self.scores_mix.values(), reverse=True)[0])}")
+        
+        # Esecuzione dell'algoritmo genetico
+        for generation in range(self.config["genetic_algorithms"]["generations_mix"]):
+
+            # Selezione dei genitori
+            weights=[self.scores_mix[tuple(individual)] for individual in self.population_mix]
+            with alive_bar(self.population_size_mix // 2, title = "Choosing parents: ".ljust(30)) as bar:
+                parents = [self.choose_parents_mix(weights, bar) for _ in range(self.population_size_mix // 2)]
+
+            # Crossover
+            with alive_bar(len(parents), title=f"Crossover generation mix {generation}".ljust(30)) as bar:
+                children = [self.crossover_mix(parents_pair, bar) for parents_pair in parents]
+                children = [child for sublist in children for child in sublist]  # Unflattening the list
+
+            # Mutazione
+            mutated_children = [self.mutate_mix(child) for child in children]
+
+            # Calcolo dei punteggi di fitness solo per i nuovi individui generati
+            new_individuals = [individual for individual in mutated_children if tuple(individual) not in self.scores_mix.keys()]
+            with alive_bar(len(new_individuals), title=f"Generazione mix {generation+1}:".ljust(30)) as bar:
+                for individual in new_individuals:
+                    self.scores_mix[tuple(individual)] = fitness_function(individual=individual[:self.n], board=self.formatter(individual[self.n:]))
+                    bar()
+            print(f"Best of generation {generation + 1}:\t {1/(sorted(self.scores_mix.values(), reverse=True)[0])}")
+
+            self.scores_mix = dict(sorted(self.scores_mix.items(), key=lambda x:x[1])[-self.population_size_mix:])
+
+            f = open("results.log", "a")
+            f.write(f"-- GENERETION: {generation} -- \t")
+            f.write(f"{datetime.datetime.now()}\n")
+            for key in dict(sorted(self.scores_mix.items(), key=lambda x:x[1])[-5:]):
+                f.write(f"{key}: {1/self.scores_mix[key]},\n")
+            f.close()
+
+            # Nuova generazione: combinazione di individui originali e figli mutati
+            self.population_mix = self.population_mix + mutated_children
+            self.population_mix = list(filter(lambda x: tuple(x) in list(self.scores_mix.keys()), self.population_mix))
+
+        # Troviamo la soluzione migliore tra tutti gli individui
+        best_solution = max(self.population_mix, key=lambda individual: self.scores_mix[tuple(individual)])
+        best_fitness = self.scores_mix[tuple(best_solution)]
+        
+        # Stampa su file
+        f = open("best_galton.txt", "w")
+        print("Miglior combinazione di parametri mix:", best_solution)
+        f.write(f"Miglior combinazione di parametri mix: {best_solution} \n")
+        print(f"Valore minimo della funzione mix: {1/best_fitness}")
+        f.write(f"Valore minimo della funzione mix: {1/best_fitness} \n")
+
+        return best_solution
+    
 ############################################# Bayesian Optimization ##################################################################
     
     def proxy_fitness_function_log(self, **kwargs):
@@ -449,9 +578,8 @@ if __name__ == "__main__":
     # print(galton.galton_score([0.5, 0.5, 0.5, 0.5], [np.array([1]), np.array([0, 1]), np.array([1, 1, 0]), np.array([1, 1, 1, 1])]))
     start = time.time()
     print(sum(galton.distribution))
-    galton.def_individual = galton.find_galton("chi")
-    best = galton.find_galton_pins("chi")
-    galton.test(best)
+    best = galton.find_galton_mix("chi")
+    # galton.test(best)
     # galton.simulate(best)
     end = time.time()
     print(f"{end-start}s")
