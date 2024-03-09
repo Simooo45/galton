@@ -120,7 +120,7 @@ class Galton:
     
 
     def test(self, individual):
-        print(self.galton_score(individual))
+        print(self.galton_score(individual[:self.n], self.formatter(individual[self.n:])))
 
 ############################################ Fitness function #############################################################
     def fitness_function_chi(self, individual=None, board=None):
@@ -575,11 +575,10 @@ class Galton:
 
 if __name__ == "__main__":
     galton = Galton()
-    # print(galton.galton_score([0.5, 0.5, 0.5, 0.5], [np.array([1]), np.array([0, 1]), np.array([1, 1, 0]), np.array([1, 1, 1, 1])]))
     start = time.time()
     print(sum(galton.distribution))
     best = galton.find_galton_mix("chi")
-    # galton.test(best)
+    galton.test(best)
     # galton.simulate(best)
     end = time.time()
     print(f"{end-start}s")
