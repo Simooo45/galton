@@ -51,7 +51,13 @@ class Galton:
         """
             Creazione di un individuo randomico.
         """
-        return np.random.randint(0, 2, size=((self.n*(self.n+1))//2))
+        result = np.random.randint(0, 2, size=((self.n*(self.n+1))//2))
+        acc = 0
+        for idx in range(1, self.n - 1):
+            result[acc - 1] = 1
+            result[acc] = 1
+            acc = acc + idx
+        return result
 
 
     def create_starting_population_pins(self):
@@ -59,7 +65,7 @@ class Galton:
             Creazione della popolazione iniziale.
         """
         return [self.create_individual_pins() for _ in range(self.config["genetic_algorithms"]["starting_population_size_pins"])]
-    
+        
 
     def create_individual_mix(self):
         """
@@ -313,6 +319,11 @@ class Galton:
                 mutated_individual.append(random.randint(0, 1))
             else:
                 mutated_individual.append(individual[i])
+        acc = 0
+        for idx in range(1, self.n):
+            acc = acc + idx
+            mutated_individual[idx - 1] = 1
+            mutated_individual[idx] = 1
         return mutated_individual
 
 
@@ -386,6 +397,8 @@ class Galton:
     def formatter(self, individual):
         result = []
         for idx in range(1, self.n):
+            individual[0] = 1
+            individual[idx-1] = 1
             result.append(np.array(individual[:idx]))
             individual = individual[idx:]
         return result
