@@ -6,17 +6,20 @@ import java.io.PrintWriter;
 import java.util.*;
 
 public class Galton {
-    private Random rn                           = new Random();
     private final double[] distribution         = {0.4761856614544038, 0.24943288860794455, 0.13065652949161874, 0.0684397666805937, 0.0358497327421709, 0.018778604896230646, 0.00983650294926533, 0.005152501519978572, 0.0026989542981191647, 0.001413751024641368, 0.0007405430914733744, 0.0003879071072419258, 0.000203191314025255, 0.00010643452858820759, 5.575193472288876e-05, 2.9203664135828375e-05, 1.529729870716281e-05, 8.012944767744859e-06, 4.197295553944142e-06, 2.198603694121975e-06, 1.1516601920645072e-06, 6.032561491332009e-07, 3.15994235083048e-07, 1.6552231875165257e-07, 8.670296784915498e-08, 4.541625981648194e-08};
     private final int N                         = this.distribution.length - 1;
     private final int NPins                     = (this.N*(this.N+1))/2;
     private final int NMix                      = this.N + this.NPins;
-    private final int generations               = 20000;
+    private final int generations               = 10000;
     private final int startingPopulationSize    = 100000;
     private final int populationSize            = 50;
     private final double mutationRateMAX        = 0.2;
     private final double mutationRateMIN        = 0.0001;
+    private final String fun                    = "log";        // "log" o "chi"
     private final boolean keepBorders           = true;
+    private final boolean initRandomBoard       = false;
+    
+    private Random rn                           = new Random();
     private Map<double[], Double> population    = new HashMap<>();
     
     public Galton(){
@@ -31,7 +34,11 @@ public class Galton {
     private double[] createIndividual(){
         double[] result = new double[this.N];
         for (int i = 0; i < this.N; i++){
-            result[i] = this.rn.nextDouble();
+            if (initRandomBoard) {
+                result[i] = this.rn.nextDouble();
+            } else {
+                result[i] = 1.0d;
+            }
         }
         return result;
     }
@@ -106,7 +113,21 @@ public class Galton {
 
             
         }
+        for (i = 0; i < matrix.length; i++){
+            if (matrix[i] == 0){
+                matrix[i] = 0.0000001d;
+            }
+        }
         return matrix;
+    }
+
+    public double log(double[] individual){
+        double result = 0;
+        double[] galtonScore = this.galtonScore(individual);
+        for (int i = 0; i < galtonScore.length; i++){
+            result += Math.abs(Math.log((double)galtonScore[i]/ this.distribution[i]));
+        }
+        return result;
     }
 
     public double chiSquare(double[] individual){
@@ -118,8 +139,13 @@ public class Galton {
         return result;
     }
 
-    public double fitnessFunctionChi(double[] individual){
-        double d = this.chiSquare(individual);
+    public double fitnessFunction(double[] individual){
+        double d;
+        if (this.fun.equals("log")){
+            d = this.log(individual);
+        } else {
+            d = this.chiSquare(individual);
+        }
         return 1 / d;  
     } 
 
@@ -204,7 +230,7 @@ public class Galton {
         };
 
         for (double[] f : startingPopulation){
-            this.population.put(f, this.fitnessFunctionChi(f));
+            this.population.put(f, this.fitnessFunction(f));
         }
         System.out.println("Popolazione iniziale creata!");
         for (int gen = 0; gen < this.generations; gen++){
@@ -215,7 +241,7 @@ public class Galton {
             }
             for (double[] child : children){
                 if (!this.population.keySet().contains(child)){
-                    this.population.put(child, this.fitnessFunctionChi(child));
+                    this.population.put(child, this.fitnessFunction(child));
                 }
             }
             children.clear();
@@ -282,6 +308,5 @@ public class Galton {
                 joiner.add("" + gScore[i]);
         }
         System.out.println(joiner.toString());
-
     }
 }
