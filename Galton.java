@@ -10,10 +10,11 @@ public class Galton {
     private final int N                         = 25;
     private final int NPins                     = (this.N*(this.N+1))/2;
     private final int NMix                      = this.N + this.NPins;
-    private final int generations               = 20000;
+    private final int generations               = 1000;
     private final int startingPopulationSize    = 100000;
     private final int populationSize            = 50;
     private final double mutationRateInit       = 0.1;
+    private final boolean keepBorders           = true;
     private double mutationRate                 = this.mutationRateInit;
     private Map<double[], Double> population    = new HashMap<>();
     private double[] distribution               = {0.4761856614544038, 0.24943288860794455, 0.13065652949161874, 0.0684397666805937, 0.0358497327421709, 0.018778604896230646, 0.00983650294926533, 0.005152501519978572, 0.0026989542981191647, 0.001413751024641368, 0.0007405430914733744, 0.0003879071072419258, 0.000203191314025255, 0.00010643452858820759, 5.575193472288876e-05, 2.9203664135828375e-05, 1.529729870716281e-05, 8.012944767744859e-06, 4.197295553944142e-06, 2.198603694121975e-06, 1.1516601920645072e-06, 6.032561491332009e-07, 3.15994235083048e-07, 1.6552231875165257e-07, 8.670296784915498e-08, 4.541625981648194e-08};
@@ -46,7 +47,15 @@ public class Galton {
     private double[] createIndividualMix(){
         double[] result = new double[this.NMix];
         System.arraycopy(this.createIndividual(), 0, result, 0, this.N);  
-        System.arraycopy(this.createIndividualPins(), 0, result, this.N, this.NPins);  
+        System.arraycopy(this.createIndividualPins(), 0, result, this.N, this.NPins); 
+        if (keepBorders){
+            int counter = 0;
+            for (int i = 1; i <= this.N; i++){
+                result[this.N + counter] = 1;
+                result[this.N + counter + i - 1] = 1;
+                counter += i;
+            }
+        }
         return result;
     }
 
@@ -162,6 +171,14 @@ public class Galton {
                 } 
             }
         }
+        if (keepBorders){
+            int counter = 0;
+            for (int i = 1; i <= this.N; i++){
+                individual[this.N + counter] = 1;
+                individual[this.N + counter + i - 1] = 1;
+                counter += i;
+            }
+        }
         return individual;
 
     }
@@ -246,7 +263,6 @@ public class Galton {
                     fout.println(joiner.toString());
                     fout.close();
                 } catch (IOException e) {
-                    //exception handling left as an exercise for the reader
                 }
             }
         }
