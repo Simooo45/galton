@@ -13,10 +13,10 @@ public class Galton {
     private final int NMix                      = this.N + this.NPins;
     private final int generations               = 20000;
     private final int startingPopulationSize    = 100000;
-    private final int populationSize            = 150;
-    private final double mutationRateInit       = 0.1;
+    private final int populationSize            = 50;
+    private final double mutationRateMAX        = 0.2;
+    private final double mutationRateMIN        = 0.0001;
     private final boolean keepBorders           = true;
-    private double mutationRate                 = this.mutationRateInit;
     private Map<double[], Double> population    = new HashMap<>();
     
     public Galton(){
@@ -160,10 +160,11 @@ public class Galton {
     }
 
     public double[] mutateMix(double[] individual){
+        double mutationRate = rn.nextDouble()*(mutationRateMAX - mutationRateMIN) + mutationRateMIN;
         double change;
         for (int i = 0; i < individual.length; i++){
             change = rn.nextDouble();
-            if (change < this.mutationRate){
+            if (change < mutationRate){
                 if (i < this.N){
                     individual[i] = rn.nextDouble();
                 } else {
@@ -207,7 +208,6 @@ public class Galton {
         }
         System.out.println("Popolazione iniziale creata!");
         for (int gen = 0; gen < this.generations; gen++){
-            this.mutationRate = this.mutationRateInit*(((double)this.generations-gen)/this.generations);
             for (i = 0; i < this.populationSize/2; i++){
                 bros = this.crossoverMix(this.chooseParentsMix());
                 children.add(this.mutateMix(bros[0]));
